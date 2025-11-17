@@ -1,0 +1,37 @@
+# Python virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables (contains API token)
+.env
+
+# Generated data directories
+data_raw/
+data_processed/
+figures/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
