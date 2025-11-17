@@ -10,6 +10,7 @@ This script:
 
 import os
 import json
+import time
 import requests
 import pandas as pd
 from pathlib import Path
@@ -19,6 +20,9 @@ from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# Rate limiting: NOAA API allows 5 requests per second
+REQUEST_DELAY = 0.21  # 210ms between requests = ~4.7 requests/second
 
 BASE_URL = "https://www.ncdc.noaa.gov/cdo-web/api/v2"
 DATA_DIR = Path("data_raw")
@@ -42,7 +46,7 @@ def find_station():
     Find the NOAA GHCN-D station for Redwood City, CA.
 
     Returns:
-        str: Station ID (e.g., 'GHCND:USC00044715')
+        dict: Station information including ID and date coverage
     """
     print("Searching for Redwood City weather station...")
 
@@ -80,11 +84,18 @@ def find_station():
             "\n".join(f"  - {s['name']} ({s['id']})" for s in stations[:10])
         )
 
+    # Sort by coverage start date (prefer older stations) and prioritize COOP stations
+    def station_score(s):
+        mindate = s.get("mindate", "9999-12-31")
+        # Prefer USC (COOP) stations over US1 (citizen weather observers)
+        station_type_bonus = 0 if s["id"].startswith("GHCND:USC") else 1000
+        return (station_type_bonus, mindate)
+
+    candidates.sort(key=station_score)
     station = candidates[0]
-    station_id = station["id"]
 
     print(f"Found station: {station['name']}")
-    print(f"  ID: {station_id}")
+    print(f"  ID: {station['id']}")
     print(f"  Coverage: {station.get('mindate', 'N/A')} to {station.get('maxdate', 'N/A')}")
 
     # Save station info
@@ -93,40 +104,65 @@ def find_station():
         json.dump(station, f, indent=2)
     print(f"Saved station info to {station_info_file}")
 
-    return station_id
+    return station
 
 
-def fetch_data(station_id, start_date="1948-01-01", end_date=None):
+def fetch_data_for_type(station, datatype):
     """
-    Fetch all daily TMAX and TMIN data for a station.
+    Fetch all daily data for a specific data type.
 
     Args:
-        station_id: NOAA station ID
-        start_date: Start date (YYYY-MM-DD)
-        end_date: End date (YYYY-MM-DD), defaults to today
+        station: Station dict with id, mindate, maxdate
+        datatype: Either "TMAX" or "TMIN"
+
+    Returns:
+        list: All records for this datatype
     """
-    if end_date is None:
-        end_date = date.today().isoformat()
+    from datetime import datetime, timedelta
 
-    print(f"\nFetching data from {start_date} to {end_date}...")
+    station_id = station["id"]
+    # Use 1948 as start date or station's mindate if later
+    station_mindate = station.get("mindate", "1948-01-01")
+    start_date = max("1948-01-01", station_mindate)
+    end_date = station.get("maxdate", date.today().isoformat())
 
-    offset = 1
+    # Parse dates
+    start_dt = datetime.fromisoformat(start_date)
+    end_dt = datetime.fromisoformat(end_date)
+
     all_rows = []
+    page_num = 0
 
-    with tqdm(desc="Fetching API pages", unit="page") as pbar:
+    # Fetch data in 1-year chunks to avoid API limits
+    current_start = start_dt
+
+    while current_start < end_dt:
+        # Get data for 1 year at a time
+        current_end = min(
+            datetime(current_start.year + 1, 1, 1) - timedelta(days=1),
+            end_dt
+        )
+
+        chunk_start = current_start.date().isoformat()
+        chunk_end = current_end.date().isoformat()
+
+        offset = 1
         while True:
             params = {
                 "datasetid": "GHCND",
                 "stationid": station_id,
-                "startdate": start_date,
-                "enddate": end_date,
-                "datatypeid": "TMAX,TMIN",  # Both TMAX and TMIN
+                "startdate": chunk_start,
+                "enddate": chunk_end,
+                "datatypeid": datatype,
                 "limit": 1000,
                 "offset": offset,
                 "units": "metric",  # Get data in metric (tenths of °C)
             }
 
             try:
+                # Add rate limiting delay
+                time.sleep(REQUEST_DELAY)
+
                 r = requests.get(
                     f"{BASE_URL}/data",
                     headers=get_api_headers(),
@@ -135,7 +171,7 @@ def fetch_data(station_id, start_date="1948-01-01", end_date=None):
                 )
                 r.raise_for_status()
             except requests.exceptions.RequestException as e:
-                print(f"\nWarning: API request failed at offset {offset}: {e}")
+                # Silently skip failed chunks (might be no data for that period)
                 break
 
             data = r.json()
@@ -145,13 +181,44 @@ def fetch_data(station_id, start_date="1948-01-01", end_date=None):
                 break
 
             # Cache raw response
-            page_file = PAGES_DIR / f"page_{offset:06d}.json"
+            page_file = PAGES_DIR / f"page_{datatype}_{page_num:06d}.json"
             with open(page_file, "w") as f:
                 json.dump(data, f)
 
             all_rows.extend(results)
+            page_num += 1
             offset += 1000
-            pbar.update(1)
+
+        # Move to next year
+        current_start = datetime(current_start.year + 1, 1, 1)
+
+    return all_rows
+
+
+def fetch_data(station):
+    """
+    Fetch all daily TMAX and TMIN data for a station.
+
+    Args:
+        station: Station dict with id, mindate, maxdate
+    """
+    # Use 1948 as start date or station's mindate if later
+    station_mindate = station.get("mindate", "1948-01-01")
+    start_date = max("1948-01-01", station_mindate)
+    end_date = station.get("maxdate", date.today().isoformat())
+
+    print(f"\nFetching data from {start_date} to {end_date}...")
+
+    # Fetch TMAX and TMIN separately
+    print("\nFetching TMAX (daily highs)...")
+    tmax_rows = fetch_data_for_type(station, "TMAX")
+    print(f"  Retrieved {len(tmax_rows):,} TMAX records")
+
+    print("\nFetching TMIN (daily lows)...")
+    tmin_rows = fetch_data_for_type(station, "TMIN")
+    print(f"  Retrieved {len(tmin_rows):,} TMIN records")
+
+    all_rows = tmax_rows + tmin_rows
 
     if not all_rows:
         raise RuntimeError("No data retrieved from NOAA API")
@@ -179,19 +246,37 @@ def main():
     print("NOAA GHCN-D Data Fetcher for Redwood City, CA")
     print("=" * 70)
 
+    # Check if we already have the final CSV file
+    output_file = DATA_DIR / "all_daily_raw.csv"
+    if output_file.exists():
+        print(f"\nFound existing data file: {output_file}")
+        print("Skipping fetch (data already downloaded)")
+        print("Delete this file to re-fetch data from NOAA")
+
+        # Load and print summary
+        df = pd.read_csv(output_file)
+        print("\nExisting data summary:")
+        print(f"  Total records: {len(df):,}")
+        print(f"  Date range: {df['date'].min()} to {df['date'].max()}")
+        print(f"  Data types: {df['datatype'].unique().tolist()}")
+
+        print("\n" + "=" * 70)
+        print("Using cached data!")
+        print("=" * 70)
+        return
+
     # Check if we already have station info cached
     station_info_file = DATA_DIR / "station_info.json"
     if station_info_file.exists():
         print(f"\nLoading cached station info from {station_info_file}")
         with open(station_info_file) as f:
-            station_info = json.load(f)
-            station_id = station_info["id"]
-            print(f"Using station: {station_info['name']} ({station_id})")
+            station = json.load(f)
+            print(f"Using station: {station['name']} ({station['id']})")
     else:
-        station_id = find_station()
+        station = find_station()
 
     # Fetch the data
-    fetch_data(station_id)
+    fetch_data(station)
 
     print("\n" + "=" * 70)
     print("Data fetch complete!")

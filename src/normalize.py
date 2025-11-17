@@ -33,8 +33,8 @@ def load_and_clean_data():
     # Convert date column to datetime
     df["date"] = pd.to_datetime(df["date"])
 
-    # NOAA metric units: value is in tenths of °C
-    df["temp_c"] = df["value"] / 10.0
+    # NOAA API with units=metric returns values in °C
+    df["temp_c"] = df["value"]
     df["temp_f"] = df["temp_c"] * 9.0 / 5.0 + 32.0
 
     # Extract date components
