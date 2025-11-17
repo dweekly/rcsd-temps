@@ -8,8 +8,9 @@ env/
 
 # Generated data directories
 data_raw/
-data_processed/
-figures/
+
+# Note: data_processed/ and figures/ are committed so users can
+# regenerate visualizations without fetching from NOAA API
 
 # Python cache
 __pycache__/

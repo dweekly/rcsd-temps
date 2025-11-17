@@ -1,21 +1,43 @@
 # Redwood City Temperature Extremes Visualization
 
-A data visualization project that analyzes and visualizes daily temperature extremes (highs and lows) for Redwood City, California, using NOAA's Global Historical Climatology Network Daily (GHCN-D) dataset.
+A data visualization project that analyzes and visualizes daily temperature extremes (highs and lows) for Redwood City, California, using NOAA's Global Historical Climatology Network Daily (GHCN-D) dataset from 1948-2025.
 
 ## Overview
 
-This project creates beautiful visualizations showing how recent years' temperatures compare to historical patterns. Each visualization shows:
+This project creates visualizations showing how temperature patterns have changed over 77 years. Analysis includes:
 
-- **Historical Context**: All years from ~1948 onwards plotted as faint gray lines
-- **Recent Trends**: The last 3 years highlighted in color for easy comparison
+- **Historical Context**: All years from 1948 onwards plotted as faint gray lines
+- **Recent Comparison**: The last 3 years highlighted in color
 - **Daily Extremes**: Both daily high (TMAX) and daily low (TMIN) temperatures
-- **Seasonal Patterns**: Month-by-month temperature variations throughout the year
+- **Seasonal Patterns**: Month-by-month temperature variations
+- **Heat Trend Analysis**: Days above 90°F and 100°F over time, with focus on educational impact
 
-## Sample Output
+## Key Findings
 
-The pipeline generates high-resolution visualizations in multiple formats (PNG, PDF, SVG) showing two panels:
-- Top panel: Daily high temperatures
-- Bottom panel: Daily low temperatures
+📊 **Temperature Data (1948-2025)**
+- **Record High**: 109.9°F (September 2022)
+- **Record Low**: 8.1°F (January 1995)
+- **Mean High**: 71.2°F
+- **Mean Low**: 47.6°F
+- **Total Records**: 51,446 daily observations
+
+🔥 **Heat Trend Analysis**
+- **Days above 90°F**: No significant trend over 77 years (p=0.77)
+  - Historical average (1948-1970): 15.2 days/year
+  - Recent decade average: 14.6 days/year
+- **Days above 100°F**: No significant trend (p=0.47)
+  - Historical average: 1.6 days/year
+  - Recent decade average: 2.0 days/year
+
+**Educational Context**: While global warming is real, Redwood City's coastal location and marine influence appear to moderate extreme heat. The data shows no statistically significant increase in extreme heat days that would disrupt education, though individual years (like 2024 with 23 days >90°F) can still present challenges.
+
+## Visualizations
+
+### Daily Temperature Extremes (1948-2025)
+![Temperature Extremes](figures/redwoodcity_temp_extremes.png)
+
+### Heat Days Trend Analysis
+![Heat Trends](figures/heat_days_trend.png)
 
 ## Requirements
 
@@ -26,13 +48,35 @@ The pipeline generates high-resolution visualizations in multiple formats (PNG, 
 
 ## Quick Start
 
-### 1. Get a NOAA API Token
+### Option 1: Using Committed Data (No API Token Needed)
+
+The repository includes pre-processed temperature data, so you can regenerate visualizations without fetching from NOAA:
+
+```bash
+# Clone the repository
+git clone https://github.com/dweekly/rcsd-temps.git
+cd rcsd-temps
+
+# Set up virtual environment and install dependencies
+make setup
+
+# Generate visualizations using committed data
+make visualize-only
+```
+
+This will regenerate all visualizations in the `figures/` directory using the committed processed data.
+
+### Option 2: Fetch Fresh Data from NOAA
+
+To download the latest temperature data:
+
+#### 1. Get a NOAA API Token
 
 1. Visit [NOAA NCEI's token request page](https://www.ncdc.noaa.gov/cdo-web/token)
 2. Enter your email address
 3. Check your email for the token (arrives within minutes)
 
-### 2. Clone and Setup
+#### 2. Clone and Setup
 
 ```bash
 # Clone the repository
@@ -46,35 +90,40 @@ echo "NOAA_TOKEN=your-token-here" > .env
 make setup
 ```
 
-### 3. Run the Pipeline
+#### 3. Run the Full Pipeline
 
 ```bash
-# Run the entire pipeline (fetch, process, visualize)
+# Run the entire pipeline (fetch, process, visualize, analyze)
 make all
 ```
 
 This will:
-1. Download temperature data from NOAA (~1948 to present)
+1. Download temperature data from NOAA (1948 to present)
 2. Process and normalize the data
-3. Generate visualizations in the `figures/` directory
+3. Generate temperature extremes visualization
+4. Analyze heat trends (days above 90°F/100°F)
 
 ## Project Structure
 
 ```
 rcsd-temps/
 ├── src/
-│   ├── fetch_noaa.py      # Download data from NOAA API
-│   ├── normalize.py       # Process and normalize data
-│   └── visualize.py       # Generate visualizations
-├── data_raw/              # Raw API responses (generated)
-├── data_processed/        # Processed CSV files (generated)
-├── figures/               # Output visualizations (generated)
-├── .env                   # API token (create this, not in git)
-├── .gitignore            # Excludes generated files and secrets
-├── Makefile              # Pipeline automation
-├── requirements.txt      # Python dependencies
-└── README.md             # This file
+│   ├── fetch_noaa.py          # Download data from NOAA API
+│   ├── normalize.py           # Process and normalize data
+│   ├── visualize.py           # Generate temperature extremes visualization
+│   └── analyze_heat_trends.py # Analyze days above 90°F/100°F
+├── data_raw/                  # Raw API responses (generated, not committed)
+├── data_processed/            # Processed CSV files (committed for reuse)
+├── figures/                   # Output visualizations (committed)
+├── .env                       # API token (create this, not in git)
+├── .env.example              # Template for .env file
+├── .gitignore                # Excludes generated files and secrets
+├── Makefile                  # Pipeline automation
+├── requirements.txt          # Python dependencies
+└── README.md                 # This file
 ```
+
+**Note**: `data_processed/` and `figures/` are committed to the repository so users can regenerate visualizations without needing a NOAA API token.
 
 ## Detailed Usage
 
@@ -83,14 +132,20 @@ rcsd-temps/
 You can run each step independently:
 
 ```bash
-# Download data from NOAA
+# Download data from NOAA (requires API token)
 make fetch
 
 # Process the downloaded data
 make normalize
 
-# Generate visualizations
+# Generate temperature extremes visualization
 make visualize
+
+# Analyze heat trends (days above 90°F/100°F)
+make analyze
+
+# Run all visualization steps using committed data (no API needed)
+make visualize-only
 ```
 
 ### Cleaning Up
@@ -144,9 +199,11 @@ make help
 This project uses the **NOAA Global Historical Climatology Network Daily (GHCN-D)** dataset, accessed via the NCEI Climate Data Online (CDO) API v2.
 
 - **Dataset**: GHCND
-- **Station**: Automatically discovered (typically USC00044715 - Redwood City)
+- **Station**: GHCND:USC00047339 (REDWOOD CITY, CA US)
+  - Location: 37.4767°N, 122.2386°W, elevation 9.4m
+  - Coverage: 1906-04-01 to present (using 1948+ for this analysis)
 - **Parameters**: TMAX (daily maximum temperature), TMIN (daily minimum temperature)
-- **Period**: ~1948 to present
+- **Records**: 51,446 daily observations (1948-2025)
 - **API Documentation**: https://www.ncdc.noaa.gov/cdo-web/webservices/v2
 
 ## Customization

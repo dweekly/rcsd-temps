@@ -1,10 +1,13 @@
-.PHONY: all setup fetch normalize visualize clean help
+.PHONY: all setup fetch normalize visualize analyze visualize-only clean help
 
 # Use the Python from the virtual environment
 PYTHON = .venv/bin/python
 
 # Default target: run entire pipeline
-all: fetch normalize visualize
+all: fetch normalize visualize analyze
+
+# Run visualization only (uses committed processed data)
+visualize-only: visualize analyze
 
 # Set up the virtual environment and install dependencies
 setup:
@@ -29,6 +32,11 @@ visualize:
 	@echo "Generating visualizations..."
 	$(PYTHON) src/visualize.py
 
+# Analyze heat trends
+analyze:
+	@echo "Analyzing heat trends..."
+	$(PYTHON) src/analyze_heat_trends.py
+
 # Clean all generated data and figures
 clean:
 	@echo "Cleaning generated files..."
@@ -46,16 +54,22 @@ help:
 	@echo "Redwood City Temperature Visualization Pipeline"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make setup      - Create virtual environment and install dependencies"
-	@echo "  make fetch      - Download data from NOAA API"
-	@echo "  make normalize  - Process and normalize the data"
-	@echo "  make visualize  - Generate temperature visualizations"
-	@echo "  make all        - Run entire pipeline (fetch + normalize + visualize)"
-	@echo "  make clean      - Remove generated data and figures"
-	@echo "  make clean-all  - Remove generated files AND virtual environment"
-	@echo "  make help       - Show this help message"
+	@echo "  make setup         - Create virtual environment and install dependencies"
+	@echo "  make fetch         - Download data from NOAA API"
+	@echo "  make normalize     - Process and normalize the data"
+	@echo "  make visualize     - Generate temperature visualizations"
+	@echo "  make analyze       - Analyze heat trends (days above 90°F/100°F)"
+	@echo "  make all           - Run entire pipeline (fetch + normalize + visualize + analyze)"
+	@echo "  make visualize-only- Regenerate visualizations using committed data (no API needed)"
+	@echo "  make clean         - Remove generated data and figures"
+	@echo "  make clean-all     - Remove generated files AND virtual environment"
+	@echo "  make help          - Show this help message"
 	@echo ""
-	@echo "Quick start:"
+	@echo "Quick start (with NOAA API token):"
 	@echo "  1. Create .env file with your NOAA_TOKEN"
 	@echo "  2. make setup"
 	@echo "  3. make all"
+	@echo ""
+	@echo "Quick start (without API token, using committed data):"
+	@echo "  1. make setup"
+	@echo "  2. make visualize-only"
