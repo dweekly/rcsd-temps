@@ -1,4 +1,4 @@
-.PHONY: all setup fetch normalize visualize analyze visualize-only fetch-feels-like analyze-feels-like all-feels-like clean help
+.PHONY: all setup fetch normalize visualize analyze visualize-only fetch-feels-like analyze-feels-like analyze-humidity-wind all-feels-like clean help
 
 # Use the Python from the virtual environment
 PYTHON = .venv/bin/python
@@ -6,11 +6,11 @@ PYTHON = .venv/bin/python
 # Default target: run entire pipeline
 all: fetch normalize visualize analyze
 
-# Run all analyses (temperature + feels-like)
-all-feels-like: all fetch-feels-like analyze-feels-like
+# Run all analyses (temperature + feels-like + humidity/wind)
+all-feels-like: all fetch-feels-like analyze-feels-like analyze-humidity-wind
 
 # Run visualization only (uses committed processed data)
-visualize-only: visualize analyze analyze-feels-like
+visualize-only: visualize analyze analyze-feels-like analyze-humidity-wind
 
 # Set up the virtual environment and install dependencies
 setup:
@@ -50,6 +50,11 @@ analyze-feels-like:
 	@echo "Analyzing 'feels like' temperature trends..."
 	$(PYTHON) src/analyze_feels_like.py
 
+# Analyze humidity and wind trends
+analyze-humidity-wind:
+	@echo "Analyzing humidity and wind trends..."
+	$(PYTHON) src/analyze_humidity_wind.py
+
 # Clean all generated data and figures
 clean:
 	@echo "Cleaning generated files..."
@@ -67,19 +72,20 @@ help:
 	@echo "Redwood City Temperature Visualization Pipeline"
 	@echo ""
 	@echo "Available targets:"
-	@echo "  make setup              - Create virtual environment and install dependencies"
-	@echo "  make fetch              - Download data from NOAA API"
-	@echo "  make normalize          - Process and normalize the data"
-	@echo "  make visualize          - Generate temperature visualizations"
-	@echo "  make analyze            - Analyze heat trends (days above 90°F/100°F)"
-	@echo "  make fetch-feels-like   - Download ASOS data for 'feels like' analysis"
-	@echo "  make analyze-feels-like - Analyze 'feels like' temperature trends"
-	@echo "  make all                - Run entire temperature pipeline"
-	@echo "  make all-feels-like     - Run all pipelines (temperature + feels-like)"
-	@echo "  make visualize-only     - Regenerate visualizations using committed data (no API needed)"
-	@echo "  make clean              - Remove generated data and figures"
-	@echo "  make clean-all          - Remove generated files AND virtual environment"
-	@echo "  make help               - Show this help message"
+	@echo "  make setup                - Create virtual environment and install dependencies"
+	@echo "  make fetch                - Download data from NOAA API"
+	@echo "  make normalize            - Process and normalize the data"
+	@echo "  make visualize            - Generate temperature visualizations"
+	@echo "  make analyze              - Analyze heat trends (days above 90°F/100°F)"
+	@echo "  make fetch-feels-like     - Download ASOS data for 'feels like' analysis"
+	@echo "  make analyze-feels-like   - Analyze 'feels like' temperature trends"
+	@echo "  make analyze-humidity-wind- Analyze humidity and wind trends"
+	@echo "  make all                  - Run entire temperature pipeline"
+	@echo "  make all-feels-like       - Run all pipelines (temp + feels-like + humidity/wind)"
+	@echo "  make visualize-only       - Regenerate visualizations using committed data (no API needed)"
+	@echo "  make clean                - Remove generated data and figures"
+	@echo "  make clean-all            - Remove generated files AND virtual environment"
+	@echo "  make help                 - Show this help message"
 	@echo ""
 	@echo "Quick start (with NOAA API token):"
 	@echo "  1. Create .env file with your NOAA_TOKEN"

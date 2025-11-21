@@ -45,6 +45,28 @@ When accounting for humidity and wind effects using data from San Carlos Airport
 
 **Key Insight**: When humidity and wind are factored into the analysis, the cooling trend becomes even more apparent. The area has experienced fewer extreme heat days in recent years when accounting for how the temperature actually feels, suggesting improved comfort conditions rather than worsening heat stress.
 
+💨 **Humidity and Wind Trends (1990-2025)**
+
+Analysis of the meteorological factors that affect "feels like" temperature reveals **highly significant changes**:
+
+- **Humidity is INCREASING**: +0.422%/year (p<0.0001) - **statistically significant**
+  - Early period average (1990-2000): 63.5%
+  - Recent decade average: 73.8%
+  - **Net change**: ~10 percentage points increase over 35 years
+
+- **Summer humidity is INCREASING**: +0.496%/year (p<0.0001) - **statistically significant**
+  - Early period average: 60.1%
+  - Recent decade average: 71.6%
+
+- **Wind speed is DECREASING**: -0.152 knots/year (p<0.0001) - **statistically significant**
+  - Early period average: 7.8 knots
+  - Recent decade average: 3.9 knots
+  - **Net change**: ~50% reduction in wind speed
+
+- **Dew point is stable**: -0.010°F/year (p=0.57) - no significant trend
+
+**Critical Insight**: Higher humidity and lower wind speeds typically make hot days feel HOTTER. Yet the area is experiencing FEWER extreme heat days. This paradox reveals that the marine layer's cooling effect and overall temperature moderation are more than compensating for the humidity/wind changes. The microclimate is becoming more humid and calm, but also consistently cooler on extreme heat days.
+
 ## Visualizations
 
 ### Daily Temperature Extremes (1948-2025)
@@ -55,6 +77,9 @@ When accounting for humidity and wind effects using data from San Carlos Airport
 
 ### "Feels Like" Temperature Trends (with Humidity & Wind)
 ![Feels Like Trends](figures/feels_like_trends.png)
+
+### Humidity and Wind Trends
+![Humidity Wind Trends](figures/humidity_wind_trends.png)
 
 ## Requirements
 
@@ -126,27 +151,29 @@ The basic pipeline will:
 The extended pipeline (`all-feels-like`) also:
 5. Fetches hourly ASOS data from San Carlos Airport (1990-2025)
 6. Analyzes "feels like" temperatures accounting for humidity and wind
+7. Analyzes humidity and wind trends over time
 
 ## Project Structure
 
 ```
 rcsd-temps/
 ├── src/
-│   ├── fetch_noaa.py          # Download data from NOAA API
-│   ├── normalize.py           # Process and normalize data
-│   ├── visualize.py           # Generate temperature extremes visualization
-│   ├── analyze_heat_trends.py # Analyze days above 90°F/100°F
-│   ├── fetch_feels_like.py    # Download ASOS data for 'feels like' analysis
-│   └── analyze_feels_like.py  # Analyze 'feels like' temperature trends
-├── data_raw/                  # Raw API responses (generated, not committed)
-├── data_processed/            # Processed CSV files (committed for reuse)
-├── figures/                   # Output visualizations (committed)
-├── .env                       # API token (create this, not in git)
-├── .env.example              # Template for .env file
-├── .gitignore                # Excludes generated files and secrets
-├── Makefile                  # Pipeline automation
-├── requirements.txt          # Python dependencies
-└── README.md                 # This file
+│   ├── fetch_noaa.py            # Download data from NOAA API
+│   ├── normalize.py             # Process and normalize data
+│   ├── visualize.py             # Generate temperature extremes visualization
+│   ├── analyze_heat_trends.py   # Analyze days above 90°F/100°F
+│   ├── fetch_feels_like.py      # Download ASOS data for 'feels like' analysis
+│   ├── analyze_feels_like.py    # Analyze 'feels like' temperature trends
+│   └── analyze_humidity_wind.py # Analyze humidity and wind trends
+├── data_raw/                    # Raw API responses (generated, not committed)
+├── data_processed/              # Processed CSV files (committed for reuse)
+├── figures/                     # Output visualizations (committed)
+├── .env                         # API token (create this, not in git)
+├── .env.example                 # Template for .env file
+├── .gitignore                   # Excludes generated files and secrets
+├── Makefile                     # Pipeline automation
+├── requirements.txt             # Python dependencies
+└── README.md                    # This file
 ```
 
 **Note**: `data_processed/` and `figures/` are committed to the repository so users can regenerate visualizations without needing a NOAA API token.
@@ -175,6 +202,9 @@ make fetch-feels-like
 
 # Analyze 'feels like' temperature trends
 make analyze-feels-like
+
+# Analyze humidity and wind trends
+make analyze-humidity-wind
 
 # Run all visualization steps using committed data (no API needed)
 make visualize-only
@@ -249,6 +279,15 @@ make help
 - Counts days above 90°F/100°F thresholds for both metrics
 - Analyzes school year patterns
 - Generates 3-panel comparison visualization
+
+### 7. Humidity and Wind Analysis (`analyze_humidity_wind.py`)
+
+- Loads ASOS daily data with humidity and wind measurements
+- Calculates yearly averages for relative humidity, wind speed, and dew point
+- Analyzes both annual and summer (Jun-Sep) patterns
+- Performs statistical trend analysis with linear regression
+- Generates 4-panel visualization showing humidity and wind trends
+- Outputs: `data_processed/humidity_wind_by_year.csv`
 
 ## Data Sources
 
