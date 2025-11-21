@@ -11,6 +11,7 @@ This project creates visualizations showing how temperature patterns have change
 - **Daily Extremes**: Both daily high (TMAX) and daily low (TMIN) temperatures
 - **Seasonal Patterns**: Month-by-month temperature variations
 - **Heat Trend Analysis**: Days above 90°F and 100°F over time, with focus on educational impact
+- **"Feels Like" Analysis**: Temperature trends accounting for humidity and wind effects (1990-2025)
 
 ## Key Findings
 
@@ -31,6 +32,19 @@ This project creates visualizations showing how temperature patterns have change
 
 **Educational Context**: While global warming is real, Redwood City's coastal location and marine influence appear to moderate extreme heat. The data shows no statistically significant increase in extreme heat days that would disrupt education, though individual years (like 2024 with 23 days >90°F) can still present challenges.
 
+🌡️ **"Feels Like" Temperature Analysis (1990-2025)**
+
+When accounting for humidity and wind effects using data from San Carlos Airport:
+- **Days "feels like" ≥90°F**: Decreasing trend of -0.106 days/year (p=0.15)
+  - Early period average (1990-2000): 8.7 days/year
+  - Recent decade average: 6.8 days/year
+- **Days raw temperature ≥90°F**: Significant decreasing trend of -0.212 days/year (p=0.035)
+  - Early period average: 14.5 days/year
+  - Recent decade average: 10.6 days/year
+- **Days "feels like" ≥100°F**: No significant trend (+0.009 days/year, p=0.57)
+
+**Key Insight**: When humidity and wind are factored into the analysis, the cooling trend becomes even more apparent. The area has experienced fewer extreme heat days in recent years when accounting for how the temperature actually feels, suggesting improved comfort conditions rather than worsening heat stress.
+
 ## Visualizations
 
 ### Daily Temperature Extremes (1948-2025)
@@ -38,6 +52,9 @@ This project creates visualizations showing how temperature patterns have change
 
 ### Heat Days Trend Analysis
 ![Heat Trends](figures/heat_days_trend.png)
+
+### "Feels Like" Temperature Trends (with Humidity & Wind)
+![Feels Like Trends](figures/feels_like_trends.png)
 
 ## Requirements
 
@@ -93,15 +110,22 @@ make setup
 #### 3. Run the Full Pipeline
 
 ```bash
-# Run the entire pipeline (fetch, process, visualize, analyze)
+# Run the entire temperature pipeline (fetch, process, visualize, analyze)
 make all
+
+# Or run everything including 'feels like' analysis (takes ~7 minutes)
+make all-feels-like
 ```
 
-This will:
+The basic pipeline will:
 1. Download temperature data from NOAA (1948 to present)
 2. Process and normalize the data
 3. Generate temperature extremes visualization
 4. Analyze heat trends (days above 90°F/100°F)
+
+The extended pipeline (`all-feels-like`) also:
+5. Fetches hourly ASOS data from San Carlos Airport (1990-2025)
+6. Analyzes "feels like" temperatures accounting for humidity and wind
 
 ## Project Structure
 
@@ -111,7 +135,9 @@ rcsd-temps/
 │   ├── fetch_noaa.py          # Download data from NOAA API
 │   ├── normalize.py           # Process and normalize data
 │   ├── visualize.py           # Generate temperature extremes visualization
-│   └── analyze_heat_trends.py # Analyze days above 90°F/100°F
+│   ├── analyze_heat_trends.py # Analyze days above 90°F/100°F
+│   ├── fetch_feels_like.py    # Download ASOS data for 'feels like' analysis
+│   └── analyze_feels_like.py  # Analyze 'feels like' temperature trends
 ├── data_raw/                  # Raw API responses (generated, not committed)
 ├── data_processed/            # Processed CSV files (committed for reuse)
 ├── figures/                   # Output visualizations (committed)
@@ -143,6 +169,12 @@ make visualize
 
 # Analyze heat trends (days above 90°F/100°F)
 make analyze
+
+# Fetch ASOS data for 'feels like' analysis (~7 minutes)
+make fetch-feels-like
+
+# Analyze 'feels like' temperature trends
+make analyze-feels-like
 
 # Run all visualization steps using committed data (no API needed)
 make visualize-only
@@ -194,9 +226,35 @@ make help
 - Adds month labels, legends, and annotations
 - Saves high-resolution outputs (PNG at 500 DPI, plus PDF and SVG)
 
-## Data Source
+### 4. Heat Trend Analysis (`analyze_heat_trends.py`)
 
-This project uses the **NOAA Global Historical Climatology Network Daily (GHCN-D)** dataset, accessed via the NCEI Climate Data Online (CDO) API v2.
+- Loads processed daily temperature data
+- Counts days per year above 90°F and 100°F thresholds
+- Calculates school year statistics (August-June)
+- Performs statistical trend analysis with linear regression
+- Generates 3-panel visualization showing trends over time
+
+### 5. "Feels Like" Data Fetching (`fetch_feels_like.py`)
+
+- Fetches hourly ASOS data from San Carlos Airport (SQL station)
+- Downloads temperature, humidity, dew point, and wind speed (1990-present)
+- Uses Iowa Environmental Mesonet API
+- Aggregates to daily statistics (max/min/mean)
+- Outputs: `data_raw/asos_sql_daily.csv`
+
+### 6. "Feels Like" Analysis (`analyze_feels_like.py`)
+
+- Loads ASOS daily data with pre-calculated "feels like" temperatures
+- Compares "feels like" vs raw temperature extremes
+- Counts days above 90°F/100°F thresholds for both metrics
+- Analyzes school year patterns
+- Generates 3-panel comparison visualization
+
+## Data Sources
+
+### Primary Temperature Data
+
+**NOAA Global Historical Climatology Network Daily (GHCN-D)** dataset, accessed via the NCEI Climate Data Online (CDO) API v2:
 
 - **Dataset**: GHCND
 - **Station**: GHCND:USC00047339 (REDWOOD CITY, CA US)
@@ -205,6 +263,17 @@ This project uses the **NOAA Global Historical Climatology Network Daily (GHCN-D
 - **Parameters**: TMAX (daily maximum temperature), TMIN (daily minimum temperature)
 - **Records**: 51,446 daily observations (1948-2025)
 - **API Documentation**: https://www.ncdc.noaa.gov/cdo-web/webservices/v2
+
+### "Feels Like" Temperature Data
+
+**Iowa Environmental Mesonet ASOS archive** for San Carlos Airport:
+
+- **Station**: SQL (San Carlos Airport, ~3.5 miles from Redwood City)
+- **Location**: 37.51°N, 122.25°W
+- **Coverage**: 1990-present
+- **Parameters**: Temperature, dew point, relative humidity, wind speed, pre-calculated "feels like" temperature
+- **Records**: 342,264 hourly observations (1990-2025)
+- **API Documentation**: https://mesonet.agron.iastate.edu/request/download.phtml
 
 ## Customization
 
